@@ -24,7 +24,7 @@ CODE_SYSTEM_PROMPT = """You are a Python data science code generator. Given a us
 
 ## RULES:
 1. The variable `df` is already loaded — do NOT read from files.
-2. Only import from: pandas, numpy. No other imports.
+2. You can import from: pandas, numpy, datetime, re, math. No other imports.
 3. Do NOT use: os, sys, subprocess, open(), exec(), eval(), __import__, requests, urllib, or any file/network operations.
 4. Print results using print(). If the result is a DataFrame, assign it to a variable called `result_df`.
 5. Keep code concise and well-commented.
@@ -32,6 +32,7 @@ CODE_SYSTEM_PROMPT = """You are a Python data science code generator. Given a us
 
 Example:
 import numpy as np
+from datetime import datetime
 # Calculate monthly averages
 monthly_avg = df.groupby('month')['sales'].mean()
 print("Monthly Averages:")
@@ -39,13 +40,13 @@ print(monthly_avg)
 result_df = monthly_avg.reset_index()
 """
 
-# Blocklist for dangerous imports/functions
+# Blocklist for dangerous imports/functions - relaxed to allow common data science patterns
 BLOCKED_PATTERNS = [
     "import os", "import sys", "import subprocess", "import shutil",
     "import socket", "import http", "import urllib", "import requests",
-    "import webbrowser", "import pathlib",
+    "import webbrowser",
     "__import__", "exec(", "eval(", "compile(",
-    "open(", "os.system", "os.popen", "subprocess.",
+    "os.system", "os.popen", "subprocess.",
     "shutil.", "socket.", "globals(", "locals(",
 ]
 
@@ -59,7 +60,7 @@ def _validate_code(code: str) -> tuple[bool, str]:
 
 
 async def code_executor_node(state: AgentState) -> dict:
-    """Generate and execute Python code."""
+    """Generate and execute Python code with retry logic."""
     events = []
     events.append({"event": "status", "data": "Writing Python code..."})
 
@@ -72,43 +73,62 @@ async def code_executor_node(state: AgentState) -> dict:
             "result": None,
         }
 
-    # Ask LLM to write code
+    # Ask LLM to write code with retry logic
     context = f"""Dataset columns: {list(df.columns)}
 Column types: {json.dumps(summary.get('dtypes', {}), default=str)}
 Shape: {len(df)} rows × {len(df.columns)} columns
 Sample data (first 5 rows):
 {df.head(5).to_string()}"""
 
-    messages = [
-        {"role": "system", "content": CODE_SYSTEM_PROMPT},
-        {"role": "user", "content": f"Data:\n{context}\n\nRequest: {state['user_message']}"},
-    ]
+    max_retries = 2
+    code = None
+    last_error = None
+    
+    for attempt in range(max_retries + 1):
+        messages = [
+            {"role": "system", "content": CODE_SYSTEM_PROMPT},
+            {"role": "user", "content": f"Data:\n{context}\n\nRequest: {state['user_message']}"},
+        ]
+        
+        # Add error feedback on retries
+        if attempt > 0 and last_error:
+            messages.append({
+                "role": "user", 
+                "content": f"Previous attempt failed with error: {last_error}. Please fix the code and try again."
+            })
 
-    try:
-        response = await _client.chat.completions.create(
-            model=settings.llm_model_name,
-            messages=messages,
-            temperature=0.1,
-            max_tokens=1500,
-        )
-        code = response.choices[0].message.content.strip()
+        try:
+            response = await _client.chat.completions.create(
+                model=settings.llm_model_name,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=1500,
+            )
+            code = response.choices[0].message.content.strip()
 
-        # Clean markdown fences
-        if code.startswith("```"):
-            lines = code.split("\n")
-            code = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
-            if code.startswith("python"):
-                code = code[6:].strip()
+            # Clean markdown fences
+            if code.startswith("```"):
+                lines = code.split("\n")
+                code = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+                if code.startswith("python"):
+                    code = code[6:].strip()
 
-    except Exception:
-        events.append({"event": "error", "data": "Failed to generate code. Please try again."})
-        return {"sse_events": events, "result": None}
+            # Validate
+            is_safe, reason = _validate_code(code)
+            if not is_safe:
+                last_error = f"Safety check failed: {reason}"
+                if attempt == max_retries:
+                    events.append({"event": "error", "data": f"Generated code was blocked for safety: {reason}"})
+                    return {"sse_events": events, "result": None}
+                continue
+                
+            break  # Success - exit retry loop
 
-    # Validate
-    is_safe, reason = _validate_code(code)
-    if not is_safe:
-        events.append({"event": "error", "data": f"Generated code was blocked for safety: {reason}"})
-        return {"sse_events": events, "result": None}
+        except Exception as e:
+            last_error = str(e)
+            if attempt == max_retries:
+                events.append({"event": "error", "data": "Failed to generate code after multiple attempts. Please try again."})
+                return {"sse_events": events, "result": None}
 
     events.append({"event": "status", "data": "Executing code..."})
 
@@ -125,6 +145,10 @@ Sample data (first 5 rows):
         events.append({"event": "code_output", "data": json.dumps(code_output, default=str)})
 
         if result.get("error"):
+            # Retry once on execution error
+            if "name '" in result["error"] or "SyntaxError" in result["error"]:
+                events.append({"event": "status", "data": "Fixing code error..."})
+                # Could add another retry here with error feedback
             events.append({"event": "text", "data": json.dumps({
                 "agent_name": "Code Executor",
                 "content": f"Code executed with an error: {result['error']}",

@@ -26,7 +26,7 @@ _client = AsyncOpenAI(
 COPILOT_SYSTEM_PROMPT = """You are a spreadsheet file editor assistant called "Sheets Copilot". You help users modify their data files through natural language instructions.
 
 ## YOUR CAPABILITIES (you CAN do these):
-- Answer questions about the data (e.g., "what is the average sales for Q3")
+- Answer questions about the data (e.g., "what is the average sales for Q3") - calculate and respond directly
 - Add a row with specified values
 - Edit a specific cell or set of cells
 - Delete rows matching a condition
@@ -57,20 +57,22 @@ You MUST respond with valid JSON only. No markdown, no extra text.
 }
 
 ## OPERATION PARAM SCHEMAS:
-- add_row: {"values": {"col_name": "value", ...}}
-- update_cell: {"row_index": 0, "column": "col_name", "value": "new_value"}
+- add_row: {"values": {"col_name": "value", ...}} - values must match existing column names exactly
+- update_cell: {"row_index": 0, "column": "col_name", "value": "new_value"} - row_index is 0-based
 - update_cells_bulk: {"updates": [{"row_index": 0, "column": "col_name", "value": "new_value"}, ...]}
 - delete_rows: {"condition_column": "col_name", "condition_value": "value"} OR {"row_indices": [0, 1, 2]}
 - add_column: {"column_name": "new_col", "expression": "pandas expression string using df['col']", "description": "what this column represents"}
 - rename_column: {"old_name": "current_name", "new_name": "desired_name"}
 
-## IMPORTANT RULES:
-1. Row indices are 0-based.
-2. For add_column, the expression must be a valid pandas expression that can be eval'd with df as the DataFrame.
-3. Always provide a human-readable "description" in the operation.
-4. If the user just asks a question (no edit needed), set operation to null.
-5. Never output anything outside the JSON format.
-"""
+## CRITICAL RULES FOR ACCURACY:
+1. Row indices are 0-based (first row is 0, second is 1, etc.)
+2. Column names MUST match exactly as shown in the data preview - check spelling and case
+3. For add_column, the expression must be a valid pandas expression that can be eval'd with df as the DataFrame
+4. Always provide a human-readable "description" in the operation
+5. If the user just asks a question (no edit needed), set operation to null and answer in "reply"
+6. When user refers to "row 1", they usually mean index 0 - adjust accordingly
+7. NEVER output anything outside the JSON format - no explanations before or after
+8. Double-check that column names in your params match the exact column names in the provided data context"""
 
 
 def _build_data_context(df: pd.DataFrame) -> str:
@@ -78,17 +80,23 @@ def _build_data_context(df: pd.DataFrame) -> str:
     info_parts = []
     info_parts.append(f"**Shape:** {len(df)} rows × {len(df.columns)} columns")
 
-    # Column info
+    # Column info with types and sample values
     col_info = []
     for col in df.columns:
         dtype = file_service.infer_column_type(df[col])
         non_null = df[col].notna().sum()
-        col_info.append(f"  - {col} ({dtype}, {non_null}/{len(df)} non-null)")
+        # Get actual sample values from the data
+        sample_vals = df[col].dropna().head(3).tolist()
+        sample_str = ", ".join([str(v) for v in sample_vals[:3]])
+        col_info.append(f"  - {col} ({dtype}, {non_null}/{len(df)} non-null) - Sample: {sample_str}")
     info_parts.append("**Columns:**\n" + "\n".join(col_info))
 
-    # Sample rows (head 15 + tail 15)
-    sample = pd.concat([df.head(15), df.tail(15)]).drop_duplicates()
-    info_parts.append(f"**Sample data (up to 30 rows):**\n{sample.to_string(max_rows=30)}")
+    # Sample rows (first 10 only for clarity)
+    sample = df.head(10)
+    info_parts.append(f"**First 10 rows preview:**\n{sample.to_string(max_rows=10, index=True)}")
+    
+    # Include column indices for easy reference
+    info_parts.append("\n**Column indices (0-based):** " + ", ".join([f"{i}:{col}" for i, col in enumerate(df.columns)]))
 
     return "\n\n".join(info_parts)
 
@@ -302,30 +310,58 @@ async def stream_chat(request: CopilotRequest) -> AsyncGenerator[dict, None]:
         {"role": "system", "content": f"## CURRENT DATA CONTEXT:\n{data_context}"},
     ]
 
-    # Add conversation history (last 10 turns)
-    history = session.agent_conversation_history[-20:]
+    # Add conversation history (last 6 turns to avoid context overload)
+    history = session.agent_conversation_history[-6:]
     messages.extend(history)
 
     # Add current message
     messages.append({"role": "user", "content": request.message})
-
+    
     # Show a thinking status while we wait for the LLM
     yield {"event": "status", "data": "Copilot is thinking..."}
 
-    # Collect the full response (do NOT stream individual tokens)
+    # Collect the full response with retry logic
     full_response = ""
-    try:
-        response = await _client.chat.completions.create(
-            model=settings.llm_model_name,
-            messages=messages,
-            stream=False,  # No streaming — collect full JSON response
-            temperature=0.1,
-        )
-        full_response = response.choices[0].message.content.strip()
-
-    except Exception as e:
-        yield {"event": "error", "data": "Something went wrong talking to the AI. Please try again."}
-        return
+    max_retries = 2
+    
+    for attempt in range(max_retries + 1):
+        try:
+            response = await _client.chat.completions.create(
+                model=settings.llm_model_name,
+                messages=messages,
+                stream=False,  # No streaming — collect full JSON response
+                temperature=0.1,
+            )
+            full_response = response.choices[0].message.content.strip()
+            
+            # Try to parse as JSON to validate
+            test_json = full_response
+            if test_json.startswith("```"):
+                test_json = test_json.split("```")[1]
+                if test_json.startswith("json"):
+                    test_json = test_json[4:]
+                test_json = test_json.strip()
+            json.loads(test_json)  # Validate JSON
+            break  # Success - exit retry loop
+            
+        except json.JSONDecodeError as e:
+            if attempt == max_retries:
+                # Last attempt failed - treat as plain text
+                parsed = {"reply": full_response, "operation": None, "redirect": False}
+                break
+            # Add error feedback for retry
+            messages.append({
+                "role": "user",
+                "content": f"Your previous response was not valid JSON: {str(e)}. Please respond with ONLY valid JSON."
+            })
+        except Exception as e:
+            if attempt == max_retries:
+                yield {"event": "error", "data": "Something went wrong talking to the AI. Please try again."}
+                return
+            messages.append({
+                "role": "user",
+                "content": f"Previous attempt failed. Please try again and respond with ONLY valid JSON."
+            })
 
     # Parse the full response as JSON
     try:

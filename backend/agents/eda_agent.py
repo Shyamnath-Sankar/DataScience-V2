@@ -109,19 +109,38 @@ async def eda_agent_node(state: AgentState) -> dict:
     events.append({"event": "status", "data": "Writing analysis summary..."})
     summary_text = ""
     try:
-        summary_prompt = f"""Based on this EDA report, write a concise 3-5 sentence summary highlighting the most interesting and actionable findings. Be specific about column names and values.
+        summary_prompt = f"""You are a data analyst. Based on this EDA report, write a concise 3-5 sentence summary highlighting the most interesting and actionable findings. Be specific about column names, values, and patterns.
 
-Dataset: {shape['rows']} rows × {shape['cols']} columns
-Columns: {list(df.columns)}
-Missing values: {json.dumps({k: v['count'] for k, v in missing.items() if v['count'] > 0})}
-Top correlations: {json.dumps(correlations[:5], default=str)}
-Outlier counts: {json.dumps(outliers)}"""
+## DATASET OVERVIEW:
+- Shape: {shape['rows']} rows × {shape['cols']} columns
+- Columns: {list(df.columns)}
+
+## DATA QUALITY ISSUES (highlight these if present):
+{json.dumps({k: v for k, v in missing.items() if v['percentage'] > 5}, default=str)}
+
+## KEY STATISTICS (numeric columns only):
+{json.dumps(stats, default=str)}
+
+## TOP CORRELATIONS (absolute value > 0.5):
+{json.dumps([c for c in correlations[:5] if abs(c['value']) > 0.5], default=str) or "No strong correlations found"}
+
+## OUTLIER DETECTION (columns with >10% outliers):
+{json.dumps({k: v for k, v in outliers.items() if v > len(df) * 0.1}, default=str) or "No significant outliers"}
+
+## INSTRUCTIONS:
+1. Start with the dataset shape and purpose
+2. Highlight any data quality issues (missing values, anomalies)
+3. Mention the strongest correlations and what they might mean
+4. Point out notable outliers or unusual distributions
+5. Suggest 1-2 potential next steps for analysis
+
+Write in clear, professional language. Be specific with numbers and column names."""
 
         response = await _client.chat.completions.create(
             model=settings.llm_model_name,
             messages=[{"role": "user", "content": summary_prompt}],
             temperature=0.3,
-            max_tokens=300,
+            max_tokens=400,
         )
         summary_text = response.choices[0].message.content.strip()
     except Exception:

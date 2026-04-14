@@ -1,28 +1,26 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
+```
+# Dependencies
 .venv/
-*.egg-info/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
 dist/
 build/
+*.egg-info/
 
-# Backend
-backend/uploads/
-backend/.env
-*.db
+# Logs
+*.log
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.env.local
+# Environment
+.env
+.env.local
+*.env.*
 
-# IDE
+# Editors
 .vscode/
 .idea/
 *.swp
@@ -32,6 +30,44 @@ frontend/.env.local
 .DS_Store
 Thumbs.db
 
-# Misc
-*.log
-.gemini/
+# Testing
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Compiled
+*.class
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.exe
+*.out
+
+# Archives
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```
