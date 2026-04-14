@@ -1,0 +1,16 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sse-starlette>=2.0
+python-multipart>=0.0.9
+pandas>=2.2
+openpyxl>=3.1
+openai>=1.50
+langgraph>=0.4
+langchain-openai>=0.3
+langchain-core>=0.3
+vanna>=0.7
+chromadb>=0.5
+sqlalchemy>=2.0
+pydantic>=2.0
+pydantic-settings>=2.0
+python-dotenv>=1.0

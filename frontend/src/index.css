@@ -1,0 +1,348 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Dark Theme (Default) ───────────────────────────────── */
+  :root,
+  [data-theme="dark"] {
+    --bg-base: #050508;
+    --bg-surface: #0a0a0f;
+    --bg-card: #0f0f17;
+    --bg-elevated: #1a1a26;
+
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --accent-muted: rgba(139, 92, 246, 0.15);
+    --accent-border: rgba(139, 92, 246, 0.4);
+    --accent-glow: rgba(139, 92, 246, 0.4);
+
+    --success: #0d9488;
+    --success-muted: rgba(13, 148, 136, 0.15);
+
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --text-dim: #475569;
+
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --border-active: rgba(139, 92, 246, 0.5);
+
+    --destructive: #ef4444;
+    --destructive-muted: rgba(239, 68, 68, 0.15);
+
+    --warning: #f59e0b;
+    --warning-muted: rgba(245, 158, 11, 0.15);
+
+    --select-bg: #0f0f17;
+    --select-text: #f8fafc;
+    --select-option-bg: #12121a;
+
+    --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+
+    color-scheme: dark;
+  }
+
+  /* ── Light Theme — Excel / Microsoft 365 Inspired ─────── */
+  [data-theme="light"] {
+    --bg-base: #f5f5f5;           /* Excel ribbon area gray */
+    --bg-surface: #ffffff;        /* White cell sheet */
+    --bg-card: #ffffff;
+    --bg-elevated: #f0f0f0;
+
+    --accent: #217346;            /* Excel green */
+    --accent-hover: #1a5c38;
+    --accent-muted: rgba(33, 115, 70, 0.10);
+    --accent-border: rgba(33, 115, 70, 0.35);
+    --accent-glow: rgba(33, 115, 70, 0.20);
+
+    --success: #217346;
+    --success-muted: rgba(33, 115, 70, 0.10);
+
+    --text-primary: #1a1a1a;
+    --text-secondary: #444444;
+    --text-muted: #6b7280;
+    --text-dim: #9ca3af;
+
+    --border: #e5e7eb;
+    --border-hover: #d1d5db;
+    --border-active: rgba(33, 115, 70, 0.5);
+
+    --destructive: #dc3545;
+    --destructive-muted: rgba(220, 53, 69, 0.10);
+
+    --warning: #ed6c02;
+    --warning-muted: rgba(237, 108, 2, 0.10);
+
+    --select-bg: #ffffff;
+    --select-text: #1a1a1a;
+    --select-option-bg: #f9fafb;
+
+    --font-sans: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+    --radius: 8px;
+    --radius-sm: 6px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    color-scheme: light;
+  }
+}
+
+/* ── Base ──────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-active);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
+/* Light scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c4c4c4;
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
+/* ── Selection ─────────────────────────────────────────── */
+
+::selection {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+/* ── Focus ─────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Typography ────────────────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+code, pre, .mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Native Select Fix ─────────────────────────────────── */
+
+select,
+select option {
+  background-color: var(--select-bg) !important;
+  color: var(--select-text) !important;
+}
+
+select option {
+  background: var(--select-option-bg) !important;
+  padding: 8px;
+}
+
+/* ── Split Pane ────────────────────────────────────────── */
+
+.gutter {
+  background: var(--bg-base);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  cursor: col-resize;
+  transition: background 0.15s ease;
+}
+
+.gutter:hover {
+  background: var(--accent-muted);
+  border-color: var(--accent-border);
+}
+
+.gutter-horizontal {
+  cursor: col-resize;
+  width: 4px !important;
+}
+
+.gutter-vertical {
+  cursor: row-resize;
+  height: 4px !important;
+  border-left: none;
+  border-right: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── AG Grid Overrides ─────────────────────────────────── */
+
+.ag-theme-quartz-dark {
+  --ag-font-family: var(--font-mono) !important;
+  --ag-font-size: 13px !important;
+  --ag-background-color: var(--bg-surface) !important;
+  --ag-header-background-color: var(--bg-base) !important;
+  --ag-header-foreground-color: var(--text-secondary) !important;
+  --ag-foreground-color: var(--text-primary) !important;
+  --ag-border-color: var(--border) !important;
+  --ag-row-hover-color: var(--bg-elevated) !important;
+  --ag-selected-row-background-color: var(--accent-muted) !important;
+  --ag-range-selection-background-color: var(--accent-muted) !important;
+  --ag-row-border-color: var(--border) !important;
+  --ag-header-column-separator-color: var(--border) !important;
+  --ag-input-focus-border-color: var(--accent) !important;
+}
+
+.ag-theme-quartz-dark .ag-header-cell {
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted) !important;
+}
+
+.ag-theme-quartz-dark .ag-cell {
+  border-right: 1px solid var(--border) !important;
+}
+
+/* Cell flash animation for copilot edits */
+@keyframes cell-flash {
+  0% { background-color: var(--accent-muted); }
+  100% { background-color: transparent; }
+}
+
+.cell-changed {
+  animation: cell-flash 1.5s ease-out;
+}
+
+/* ── Animations ────────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* ── Plotly Overrides ──────────────────────────────────── */
+
+.js-plotly-plot .plotly .modebar {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn path {
+  fill: var(--text-muted) !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn:hover path {
+  fill: var(--text-primary) !important;
+}
+
+/* ── Toast (Sonner) ────────────────────────────────────── */
+
+[data-sonner-toaster] {
+  --normal-bg: var(--bg-card) !important;
+  --normal-border: var(--border) !important;
+  --normal-text: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* ── Light Theme Specific Overrides ────────────────────── */
+
+[data-theme="light"] .bg-mesh {
+  background-image: none;
+}
+
+[data-theme="light"] .shadow-neon {
+  box-shadow: 0 2px 8px rgba(33, 115, 70, 0.2), 0 1px 3px rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .shadow-glass {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+}
+
+/* Light mode forces backdrop blur panels to appear clean */
+[data-theme="light"] .backdrop-blur-md,
+[data-theme="light"] .backdrop-blur-sm,
+[data-theme="light"] .backdrop-blur-xl {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Override nav in light mode */
+[data-theme="light"] nav {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Override glow effects */
+[data-theme="light"] .from-transparent.via-accent\/50.to-transparent,
+[data-theme="light"] .from-accent\/0.via-accent\/30.to-accent\/0,
+[data-theme="light"] .from-accent\/0.via-accent\/20.to-accent\/0 {
+  display: none;
+}
