@@ -1,34 +1,28 @@
 ```
 # Dependencies
-.venv/
-venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# Logs
-*.log
-
-# Environment
+.Python
+venv/
+env/
+ENV/
+.venv/
 .env
 .env.local
-*.env.*
+.env.*
+.envrc
 
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
+# Build artifacts
+build/
+dist/
+*.egg
+*.egg-info/
+*.so
+*.dylib
+*.dll
+*.exe
 
 # Testing
 .coverage
@@ -37,37 +31,10 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 
-# Compiled
-*.class
-*.o
-*.obj
-*.so
-*.a
-*.dll
-*.exe
-*.out
+# Logs
+*.log
 
-# Archives
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+# OS generated files
+.DS_Store
+Thumbs.db
 ```
