@@ -106,11 +106,61 @@ Sample data (first 10 rows): {json.dumps(sample_data, default=str)}"""
         # The LLM generates a spec with column references — we evaluate them
         plotly_data = chart_spec.get("plotly_data", [])
 
-        # Process each trace to inject actual data
+        # Process each trace to inject actual data - comprehensive handling
         for trace in plotly_data:
-            for axis in ["x", "y", "values", "labels", "z"]:
-                if axis in trace and isinstance(trace[axis], str) and trace[axis] in df.columns:
-                    trace[axis] = df[trace[axis]].dropna().tolist()
+            # Handle standard axes
+            for axis in ["x", "y", "values", "labels", "z", "text", "hovertemplate", "marker", "size"]:
+                if axis in trace:
+                    if isinstance(trace[axis], str):
+                        # Check if it's a direct column reference
+                        if trace[axis] in df.columns:
+                            trace[axis] = df[trace[axis]].dropna().tolist()
+                        # Check for aggregation patterns like "sum(column)" or "mean(column)"
+                        elif trace[axis].startswith("sum(") and trace[axis][4:-1] in df.columns:
+                            col = trace[axis][4:-1]
+                            trace[axis] = [df[col].sum()]
+                        elif trace[axis].startswith("mean(") and trace[axis][5:-1] in df.columns:
+                            col = trace[axis][5:-1]
+                            trace[axis] = [df[col].mean()]
+                        elif trace[axis].startswith("count(") and trace[axis][6:-1] in df.columns:
+                            col = trace[axis][6:-1]
+                            trace[axis] = [df[col].count()]
+                    elif isinstance(trace[axis], dict):
+                        # Handle nested structures like marker: {color: "column"}
+                        for sub_key in ["color", "size", "symbol"]:
+                            if sub_key in trace[axis] and isinstance(trace[axis][sub_key], str):
+                                if trace[axis][sub_key] in df.columns:
+                                    trace[axis][sub_key] = df[trace[axis][sub_key]].dropna().tolist()
+            
+            # Special handling for heatmap z-axis (2D array)
+            if trace.get("type") == "heatmap" and "z" in trace and isinstance(trace["z"], list):
+                if len(trace["z"]) > 0 and isinstance(trace["z"][0], str) and trace["z"][0] in df.columns:
+                    # Pivot the data for heatmap
+                    pivot_col = trace["z"][0]
+                    x_col = trace.get("x", df.columns[0]) if isinstance(trace.get("x"), str) else df.columns[0]
+                    y_col = trace.get("y", df.columns[1]) if isinstance(trace.get("y"), str) else df.columns[1]
+                    if x_col in df.columns and y_col in df.columns:
+                        pivot_df = df.pivot_table(index=y_col, columns=x_col, values=pivot_col, aggfunc='mean')
+                        trace["z"] = pivot_df.values.tolist()
+                        trace["x"] = pivot_df.columns.tolist()
+                        trace["y"] = pivot_df.index.tolist()
+            
+            # Handle pie chart labels and values
+            if trace.get("type") == "pie":
+                if "labels" in trace and isinstance(trace["labels"], str) and trace["labels"] in df.columns:
+                    trace["labels"] = df[trace["labels"]].dropna().unique().tolist()
+                if "values" in trace and isinstance(trace["values"], str) and trace["values"] in df.columns:
+                    # Group by labels if available, otherwise just sum
+                    if "labels" in trace and isinstance(trace["labels"], list):
+                        label_col = df.columns[0]  # fallback
+                        for ax in ["x", "y", "labels"]:
+                            if ax in trace and isinstance(trace.get(ax + "_col"), str):
+                                label_col = trace[ax + "_col"]
+                                break
+                        if label_col in df.columns:
+                            trace["values"] = df.groupby(label_col)[trace["values"]].sum().tolist()
+                    else:
+                        trace["values"] = df[trace["values"]].dropna().tolist()
 
         chart_output = {
             "chart_type": chart_spec.get("chart_type", "bar"),

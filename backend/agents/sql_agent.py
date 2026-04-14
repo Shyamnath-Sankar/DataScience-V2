@@ -36,6 +36,18 @@ async def sql_agent_node(state: AgentState) -> dict:
             events.append({"event": "error", "data": "Could not generate a SQL query from your question. Try rephrasing."})
             return {"sse_events": events, "result": None}
 
+        # Validate and sanitize SQL - block dangerous operations
+        sql_upper = sql.upper().strip()
+        dangerous_keywords = ["DROP", "DELETE", "TRUNCATE", "ALTER", "CREATE", "INSERT", "UPDATE", "GRANT", "REVOKE"]
+        for kw in dangerous_keywords:
+            if kw in sql_upper:
+                events.append({"event": "error", "data": f"Query blocked for safety: {kw} operations are not allowed."})
+                return {"sse_events": events, "result": None}
+        
+        # Enforce LIMIT on SELECT queries to prevent massive result sets
+        if sql_upper.startswith("SELECT") and "LIMIT" not in sql_upper:
+            sql = sql.rstrip(";") + " LIMIT 1000"
+
         events.append({"event": "status", "data": f"Executing query..."})
 
         # Execute the SQL

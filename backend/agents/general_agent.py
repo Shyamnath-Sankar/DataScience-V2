@@ -15,34 +15,50 @@ _client = AsyncOpenAI(
 
 
 async def general_agent_node(state: AgentState) -> dict:
-    """Answer general questions using LLM with data context."""
+    """Answer general questions using LLM with data context and conversation history."""
     events = []
     events.append({"event": "status", "data": "Thinking..."})
 
     summary = state.get("dataframe_summary", {})
     history = state.get("conversation_history", [])
+    result_context = state.get("result", None)
+    
+    # Build rich context including recent canvas outputs
+    context_parts = []
+    if summary:
+        context_parts.append(f"Dataset: {summary.get('shape', {})} - Columns: {summary.get('columns', [])}")
+    
+    # Include previous analysis results for continuity
+    if result_context:
+        if isinstance(result_context, dict):
+            if result_context.get("type") == "eda":
+                context_parts.append(f"Recent EDA completed. Summary: {result_context.get('data', {}).get('summary', '')[:200]}...")
+            elif result_context.get("type") == "code_output":
+                context_parts.append(f"Recent code executed successfully.")
+            elif result_context.get("type") == "chart":
+                context_parts.append(f"Recent chart generated: {result_context.get('data', {}).get('title', '')}")
 
     messages = [
         {
             "role": "system",
-            "content": """You are a helpful data science assistant. You answer questions about the user's dataset, 
+            "content": f"""You are a helpful data science assistant. You answer questions about the user's dataset, 
 explain concepts, suggest analyses, and provide guidance.
+
+## CURRENT CONTEXT:
+{" | ".join(context_parts) if context_parts else "No specific data context available."}
 
 ## IMPORTANT RULES:
 1. Be concise, precise, and helpful. Use the data summary to give specific, relevant answers.
 2. Do NOT write Python code or code snippets — you are NOT a code executor. If the user wants code executed, tell them to ask for it directly (e.g., "Try asking: 'Show the top 10 countries by population'").
 3. Do NOT suggest charts or visualizations with code. Instead say something like "Try asking: 'Plot a bar chart of population by continent'" — the system will automatically generate and render it.
 4. You CAN answer factual questions about the data using the summary provided (e.g., column names, types, sample values).
-5. Keep responses short and actionable — 2-4 sentences max.""",
-        },
-        {
-            "role": "system",
-            "content": f"Dataset summary:\n{json.dumps(summary, default=str)}",
+5. Keep responses short and actionable — 2-4 sentences max.
+6. Reference previous analysis results when relevant to maintain conversation flow.""",
         },
     ]
 
     # Add conversation history (last 10 turns)
-    messages.extend(history[-20:])
+    messages.extend(history[-10:])
     messages.append({"role": "user", "content": state["user_message"]})
 
     try:

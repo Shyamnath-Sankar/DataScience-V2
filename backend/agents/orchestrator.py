@@ -43,13 +43,30 @@ async def orchestrator_node(state: AgentState) -> dict:
             "sse_events": [{"event": "status", "data": f"Using {intent} agent..."}],
         }
 
-    # Use LLM to classify
-    summary_text = json.dumps(state.get("dataframe_summary", {}), default=str)
+    # Use LLM to classify with rich context
+    df = state.get("dataframe")
+    summary = state.get("dataframe_summary", {})
     user_msg = state["user_message"]
+    
+    # Build rich data context for better classification
+    if df is not None:
+        sample_data = df.head(5).to_dict(orient="records")
+        numeric_cols = [col for col, dtype in summary.get('dtypes', {}).items() 
+                       if 'int' in str(dtype) or 'float' in str(dtype)]
+        date_cols = [col for col, dtype in summary.get('dtypes', {}).items() 
+                    if 'datetime' in str(dtype) or 'object' in str(dtype)]
+        data_context = f"""Dataset shape: {len(df)} rows × {len(df.columns)} columns
+Columns: {list(df.columns)}
+Column types: {json.dumps(summary.get('dtypes', {}), default=str)}
+Numeric columns: {numeric_cols}
+Date/time columns: {date_cols}
+Sample data (first 5 rows): {json.dumps(sample_data, default=str)}"""
+    else:
+        data_context = f"Columns: {summary.get('columns', [])}"
 
     messages = [
         {"role": "system", "content": CLASSIFICATION_PROMPT},
-        {"role": "user", "content": f"Data columns: {state.get('dataframe_summary', {}).get('columns', [])}\n\nUser question: {user_msg}"},
+        {"role": "user", "content": f"{data_context}\n\nUser question: {user_msg}"},
     ]
 
     try:
