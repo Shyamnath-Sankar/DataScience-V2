@@ -2,7 +2,7 @@
 LangGraph shared agent state definition.
 """
 
-from typing import TypedDict, Optional, Annotated, Any
+from typing import TypedDict, Optional, Annotated, Any, List, Dict
 import operator
 
 
@@ -23,3 +23,9 @@ class AgentState(TypedDict):
     dataframe: Optional[Any]
     # DB engine for SQL agent
     db_engine: Optional[Any]
+    
+    # === NEW: Planner & Skills Support ===
+    task_plan: Optional[Dict]  # Current task plan with progress tracking
+    current_task: Optional[Dict]  # Task currently being executed
+    task_result: Optional[Dict]  # Result from the most recent task execution
+    all_tasks_complete: bool  # Flag indicating all tasks are done
